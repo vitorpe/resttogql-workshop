@@ -8,11 +8,14 @@ import TableHead from "@material-ui/core/TableHead";
 import TableRow from "@material-ui/core/TableRow";
 import Paper from "@material-ui/core/Paper";
 import Button from "@material-ui/core/Button";
-import Amplify, { API, Auth } from "aws-amplify";
+import Amplify, {API, Auth, graphqlOperation} from "aws-amplify";
 import { Link } from "react-router-dom";
 import StockDetail from "./StockDetail";
 
 const API_NAME = "companies";
+
+import * as queries from "./graphql/queries";
+
 
 Amplify.configure({
     Auth: {
@@ -27,8 +30,15 @@ Amplify.configure({
                 endpoint: process.env.REACT_APP_API_ENDPOINT,
                 region: process.env.REACT_APP_DEFAULT_REGION
             }
-        ]
-    }
+        ],
+        graphql_headers: async () => ({
+            Authorization: (await Auth.currentSession()).getIdToken().getJwtToken()
+        }),
+        graphql_endpoint: process.env.REACT_APP_APPSYNC_ENDPOINT
+    },
+    aws_appsync_region: process.env.REACT_APP_DEFAULT_REGION,
+    aws_appsync_authenticationType: "AMAZON_COGNITO_USER_POOLS",
+    aws_appsync_graphqlEndpoint: process.env.REACT_APP_APPSYNC_ENDPOINT
 });
 
 const styles = (theme: any) =>
@@ -88,8 +98,9 @@ class StockTable extends Component<Props, State> {
             }
         });
 
-        const { data } = await API.get(API_NAME, "/company", this.state.authParams);
-        this.setState({ itemData: data.Items });
+        const anyData  = await API.graphql(graphqlOperation(queries.ListCompanies));
+        // @ts-ignore
+        this.setState({ itemData: anyData.data.listCompanies });
     }
 
     async buyStock(id: string) {
